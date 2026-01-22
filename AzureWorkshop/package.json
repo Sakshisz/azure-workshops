@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "dropzone": "^5.9.3"
-  },
-  "devDependencies": {
-    "@types/dropzone": "^5.7.9"
-  }
-}
