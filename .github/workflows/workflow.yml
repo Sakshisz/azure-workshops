@@ -1,69 +1,73 @@
+
 # Workflow name - appears in GitHub Actions UI
 name: Build and Deploy .NET Web App
 
-# Define when this workflow should run
 on:
   push:
     branches:
-      - '**'  # Triggers on push to any branch - useful for development
-  workflow_dispatch:  # Enables manual trigger from GitHub UI - helpful for testing
+      - '**'
+  workflow_dispatch:
 
-# Jobs are the main building blocks of a workflow
 jobs:
   build:
-    # Specifies the type of runner to execute the job
     runs-on: ubuntu-latest
 
-    # Sequential steps to be executed as part of the job
     steps:
-    # Check out your repository code to the runner
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # Set up .NET SDK environment
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'  # Specifies .NET 8 version
+      # ✅ IMPORTANT: Debug FIRST (otherwise we never see it)
+      - name: Debug - list folders
+        run: |
+          echo "PWD:"
+          pwd
+          echo "Top level:"
+          ls -la
+          echo "AzureWorkshopApp folder?"
+          ls -la AzureWorkshopApp || true
+          echo "Find package.json:"
+          find . -maxdepth 6 -name package.json -print || true
+          echo "Find csproj:"
+          find . -maxdepth 8 -name "*.csproj" -print || true
 
-    # Set up Node.js for frontend dependencies
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    # Install frontend dependencies from package.json
-    - name: Install npm packages
-      working-directory: ./AzureWorkshopApp  # Changes directory to where package.json is located
-      run: npm install
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    # Restore .NET project dependencies
-    - name: Restore dependencies
-      run: dotnet restore
+      # ✅ Avoid hard fail if folder is missing - gives clear message
+      - name: Install npm packages
+        shell: bash
+        run: |
+          if [ -d "AzureWorkshopApp" ]; then
+            cd AzureWorkshopApp
+            if [ -f "package.json" ]; then
+              npm install
+            else
+              echo "No package.json inside AzureWorkshopApp - skipping npm install"
+            fi
+          else
+            echo "Directory AzureWorkshopApp does not exist in runner checkout!"
+            echo "This usually means the folder is not committed/pushed to GitHub."
+            exit 1
+          fi
 
-    # Build the .NET project in Release mode
-    - name: Build
-      run: dotnet build --configuration Release --no-restore  # --no-restore skips restore since we already did it
+      - name: Restore dependencies
+        run: dotnet restore ./AzureWorkshopApp/AzureWorkshopApp.csproj
 
-    # Publish the application - creates deployment-ready files
-    - name: Publish
-      run: dotnet publish ./AzureWorkshopApp/AzureWorkshopApp.csproj --configuration Release --output ./publish --no-build
+      - name: Build
+        run: dotnet build ./AzureWorkshopApp/AzureWorkshopApp.csproj --configuration Release --no-restore
 
-    # Upload the published app as an artifact to Github
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4  # v4 is the latest version as of 2024
-      with:
-        name: dotnet-app  # Name of the artifact in GitHub
-        path: ./publish   # Directory containing files to upload
+      - name: Publish
+        run: dotnet publish ./AzureWorkshopApp/AzureWorkshopApp.csproj --configuration Release --output ./publish --no-build
 
-
-    - name: Debug - list folders
-      run: |
-        echo "PWD:"
-        pwd
-        echo "Top level:"
-        ls -la
-        echo "Find package.json:"
-        find . -maxdepth 6 -name package.json -print
-        echo "Find csproj:"
-        find . -maxdepth 8 -name "*.csproj" -print
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-app
+          path: ./publish
