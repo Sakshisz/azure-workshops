@@ -55,3 +55,15 @@ jobs:
       with:
         name: dotnet-app  # Name of the artifact in GitHub
         path: ./publish   # Directory containing files to upload
+
+
+    - name: Debug - list folders
+      run: |
+        echo "PWD:"
+        pwd
+        echo "Top level:"
+        ls -la
+        echo "Find package.json:"
+        find . -maxdepth 6 -name package.json -print
+        echo "Find csproj:"
+        find . -maxdepth 8 -name "*.csproj" -print
